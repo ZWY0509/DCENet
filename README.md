@@ -1,0 +1,2 @@
+# DCENet
+python train.py

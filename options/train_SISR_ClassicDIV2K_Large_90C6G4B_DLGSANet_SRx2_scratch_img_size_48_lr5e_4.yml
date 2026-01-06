@@ -1,0 +1,128 @@
+# general settings
+name: sandstone2DX2MAA5
+# Large Setting: 90C-6G-4B-2FFNExpansion
+model_type: SRModel
+scale: 2
+num_gpu: auto
+manual_seed: 0
+
+# dataset and data loader settings
+datasets:
+  train:
+    name: DIV2K
+    type: PairedImageDataset
+    dataroot_gt: ./RockDataSet/MyData1/MyData2/DeepRockSR_train/sandstone2D/sandstone2D_train_HR
+    dataroot_lq: ./RockDataSet/MyData1/MyData2/DeepRockSR_train/sandstone2D/sandstone2D_train_LR_default_X2
+    # meta_info_file: basicsr/data/meta_info/meta_info_DIV2K800sub_GT.txt
+    filename_tmpl: '{}x2'
+    io_backend:
+      type: disk
+
+    gt_size: 128
+    use_hflip: true
+    use_rot: true
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 1
+    batch_size_per_gpu: 4
+    dataset_enlarge_ratio: 1
+    prefetch_mode: ~
+
+  # --- validation
+  val_0:
+    name: DIV2K_Val_100
+    type: PairedImageDataset
+    dataroot_gt: ./RockDataSet/MyData/DeepRockSR_test/sandstone2D/sandstone2D_test_HR
+    dataroot_lq: ./RockDataSet/MyData/DeepRockSR_test/sandstone2D/sandstone2D_test_LR_default_X2
+    filename_tmpl: '{}'
+    io_backend:
+      type: disk
+
+# network structures
+# Modified for DCENetSR with dual-block architecture
+network_g:
+  type: DCENetSR  # Changed from DLGSANet to DCENetSR
+  upscale: 2
+  in_chans: 3
+  dim: 60          # 90 channels as in original config
+  groups: 6        # Changed from 1 to 6 to match the "6G" in the name (6 groups)
+  blocks: 2        # Changed from 5 to 4 to match the "4B" in the name (4 blocks per group)
+  buildblock_type: 'dual'  # Using our new dual-block architecture
+  # Removed unused parameters for DLGSANet:
+  # window_size: 7
+  # idynamic_num_heads: 6
+  # idynamic_ffn_type: 'GDFN'
+  # idynamic_ffn_expansion_factor: 2.
+  # idynamic: true
+  restormer_num_heads: 6
+  restormer_ffn_type: 'PCFN'  # Changed from 'GDFN' to 'PCFN' to match our code
+  restormer_ffn_expansion_factor: 2.
+  tlc_flag: true
+  tlc_kernel: 96    # using tlc during validation
+  activation: 'relu'
+  body_norm: false
+  img_range: 1.
+  upsampler: 'pixelshuffledirect'
+  use_pam: true     # Added this parameter for our DCENetSR
+
+# path
+path:
+  pretrain_network_g: ~
+  strict_load_g: true
+  resume_state: ~
+
+# all the training settings are based on SwinIR except for learning rate
+# training settings
+train:
+  ema_decay: 0.999
+  optim_g:
+    type: Adam
+    lr: !!float 5e-4
+    weight_decay: 0
+    betas: [0.9, 0.99]
+
+  scheduler:
+    type: MultiStepLR
+    milestones: [10000, 30000, 50000, 70000]
+    gamma: 0.5
+
+  total_iter: 80000
+  warmup_iter: -1  # no warm up
+
+  # losses
+  pixel_opt:
+    type: L1Loss
+    loss_weight: 1.0
+    reduction: mean
+
+# validation settings
+val:
+  val_freq: !!float 800
+  save_img: false
+
+  metrics:
+    psnr:
+      type: calculate_psnr
+      crop_border: 2
+      test_y_channel: true
+      better: higher
+    ssim:
+      type: calculate_ssim
+      crop_border: 2
+      test_y_channel: true
+      better: higher
+
+# logging settings
+logger:
+  print_freq: 200
+  save_checkpoint_freq: !!float 8000
+  use_tb_logger: true
+  wandb:
+    project: DCENetSR4SR  # Changed from DLGSANet4SR to DCENetSR4SR
+    resume_id: ~
+
+# dist training settings
+dist_params:
+  backend: nccl
+  port: 29500

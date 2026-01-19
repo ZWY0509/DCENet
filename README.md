@@ -1,2 +1,2 @@
 # DCENet
-python train.py
+python basicsr/train.py -opt options/DCENet_SISR/train_SISR_ClassicDIV2K_Large_90C6G4B_DCENet_SRx2_scratch_img_size_48_lr5e_4.yml
